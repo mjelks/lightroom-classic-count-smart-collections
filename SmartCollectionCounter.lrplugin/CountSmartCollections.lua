@@ -4,6 +4,7 @@ local LrTasks = import 'LrTasks'
 
 TOP_LEVEL_COLLECTION_NAME = "Film Scans"
 SUB_LEVEL_COLLECTION_NAME = "Processed"
+BLACK_AND_WHITE_STRING_MATCH = "bw" -- case-insensitive
 
 -- Recursively search for 'Processed' collection sets
 local function findProcessedSetsUnder(parentSet)
@@ -12,7 +13,6 @@ local function findProcessedSetsUnder(parentSet)
     if childSet:getName() == SUB_LEVEL_COLLECTION_NAME then
       table.insert(processedSets, childSet)
     end
-    -- Recurse into nested sets
     local nested = findProcessedSetsUnder(childSet)
     for _, n in ipairs(nested) do
       table.insert(processedSets, n)
@@ -27,7 +27,7 @@ LrTasks.startAsyncTask(function()
   local topLevelSets = catalog:getChildCollectionSets()
   local filmScansSet = nil
 
-  -- Find "Film Scans"
+  -- Find top-level 'Film Scans'
   for _, set in ipairs(topLevelSets) do
     if set:getName() == TOP_LEVEL_COLLECTION_NAME then
       filmScansSet = set
@@ -36,16 +36,20 @@ LrTasks.startAsyncTask(function()
   end
 
   if not filmScansSet then
-    LrDialogs.message("Error", "'Film Scans' collection set not found.", "critical")
+    LrDialogs.message("Error", "'" .. TOP_LEVEL_COLLECTION_NAME .. "' collection set not found.", "critical")
     return
   end
 
-  -- Find 'Processed' sets under Film Scans
+  -- Find all 'Processed' sets under Film Scans
   local processedSets = findProcessedSetsUnder(filmScansSet)
   local results = {}
-  local grandTotal = 0
+
+  local totalSmart = 0
+  local totalBW = 0
+  local totalC41 = 0
 
   for _, processedSet in ipairs(processedSets) do
+    -- Build name path
     local namePath = processedSet:getName()
     local parent = processedSet:getParent()
     while parent and parent ~= filmScansSet do
@@ -53,20 +57,36 @@ LrTasks.startAsyncTask(function()
       parent = parent:getParent()
     end
 
-    local count = 0
+    -- Count smart collections
+    local bwCount = 0
+    local c41Count = 0
     for _, coll in ipairs(processedSet:getChildCollections()) do
       if coll:isSmartCollection() then
-        count = count + 1
+        local name = string.lower(coll:getName())
+        if string.find(name, BLACK_AND_WHITE_STRING_MATCH) then
+          bwCount = bwCount + 1
+        else
+          c41Count = c41Count + 1
+        end
       end
     end
 
-    table.insert(results, namePath .. ": " .. count)
-    grandTotal = grandTotal + count
+    local subtotal = bwCount + c41Count
+    totalBW = totalBW + bwCount
+    totalC41 = totalC41 + c41Count
+    totalSmart = totalSmart + subtotal
+
+    table.insert(results,
+      string.format("%s:\n  B&W: %d\n  C41: %d\n  Total: %d\n", namePath, bwCount, c41Count, subtotal)
+    )
   end
 
-  -- Display results
+  -- Final output
   local message = table.concat(results, "\n")
-  message = message .. "\n\nTotal Smart Collections: " .. grandTotal
+  message = message .. string.format(
+    "\nGrand Total:\n  B&W: %d\n  C41: %d\n  Total Smart Collections: %d",
+    totalBW, totalC41, totalSmart
+  )
 
-  LrDialogs.message("Smart Collections in " .. TOP_LEVEL_COLLECTION_NAME .. " > Processed", message, "info")
+  LrDialogs.message("Smart Collections Breakdown", message, "info")
 end)
