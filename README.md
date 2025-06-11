@@ -1,0 +1,1 @@
+# lightroom-classic-count-smart-collections
