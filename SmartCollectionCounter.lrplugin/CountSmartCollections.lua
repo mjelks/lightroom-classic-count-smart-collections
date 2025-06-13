@@ -84,7 +84,7 @@ LrTasks.startAsyncTask(function()
   -- Final output
   local message = table.concat(results, "\n")
   message = message .. string.format(
-    "\nGrand Total:\n  B&W: %d\n  C41: %d\n  Total Smart Collections: %d",
+    "\nGrand Total:\n  B&W: %d\n  C41: %d\n  Total Smart Collections (i.e. Total Rolls Developed): %d",
     totalBW, totalC41, totalSmart
   )
 
