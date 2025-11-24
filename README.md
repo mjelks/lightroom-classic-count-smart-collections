@@ -15,5 +15,4 @@ SUB_LEVEL_COLLECTION_NAME = "Processed"
 
 To install, simply add the Plugin via the Lightroom `File -> Plug-in Manager...` Dialog and Add this plugin.
 
-<img width="540" alt="Screenshot 2025-06-11 at 2 17 31 PM" src="https://github.com/user-attachments/assets/7ce69069-08d2-4829-b06a-f46bfd26d1a0" />
-
+<img width="501" height="615" alt="screenshottty" src="https://github.com/user-attachments/assets/3f7dad41-1e7a-45db-a6ad-647360697bd4" />
