@@ -1,4 +1,3 @@
-<img width="531" height="722" alt="Screenshot 2026-08-17 at 11 38 35 AM" src="https://github.com/user-attachments/assets/4daecf5c-a886-4593-83d6-1e1875999052" />
 # Count Smart Collections Lightroom Classic Plugin
 Simple Plugin used to count Smart Collections (film rolls) nested under a top-level collection set, broken down by process type and camera.
 
@@ -28,4 +27,4 @@ The camera breakdown is grouped by film format — **35mm**, **Medium Format**, 
 
 Add the plugin via the Lightroom `File -> Plug-in Manager...` dialog. Once installed, run it from `File -> Plug-in Extras -> Count Smart Collections in Film Scans`.
 
-<img width="501" height="615" alt="screenshottty" src="https://github.com/user-attachments/assets/3f7dad41-1e7a-45db-a6ad-647360697bd4" />
+<img width="531" height="722" alt="Screenshot 2026-08-17 at 11 38 35 AM" src="https://github.com/user-attachments/assets/4daecf5c-a886-4593-83d6-1e1875999052" />
