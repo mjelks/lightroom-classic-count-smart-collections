@@ -3,22 +3,19 @@ local LrDialogs = import 'LrDialogs'
 local LrTasks = import 'LrTasks'
 
 TOP_LEVEL_COLLECTION_NAME = "Film Scans"
-SUB_LEVEL_COLLECTION_NAME = "Processed"
 BLACK_AND_WHITE_STRING_MATCH = "bw" -- case-insensitive
 
--- Recursively search for 'Processed' collection sets
-local function findProcessedSetsUnder(parentSet)
-  local processedSets = {}
+-- Recursively gather every collection set under a parent, at any depth
+local function findAllSetsUnder(parentSet)
+  local allSets = {}
   for _, childSet in ipairs(parentSet:getChildCollectionSets()) do
-    if childSet:getName() == SUB_LEVEL_COLLECTION_NAME then
-      table.insert(processedSets, childSet)
-    end
-    local nested = findProcessedSetsUnder(childSet)
+    table.insert(allSets, childSet)
+    local nested = findAllSetsUnder(childSet)
     for _, n in ipairs(nested) do
-      table.insert(processedSets, n)
+      table.insert(allSets, n)
     end
   end
-  return processedSets
+  return allSets
 end
 
 -- Debug flag - set to true to see all metadata fields
@@ -109,8 +106,9 @@ LrTasks.startAsyncTask(function()
     return
   end
 
-  -- Find all 'Processed' sets under Film Scans
-  local processedSets = findProcessedSetsUnder(filmScansSet)
+  -- Gather every collection set under Film Scans, at any depth, regardless of
+  -- how it's organized (e.g. Imported vs Processed) - just count the smart collections.
+  local allSets = findAllSetsUnder(filmScansSet)
   local results = {}
 
   local totalSmart = 0
@@ -120,10 +118,10 @@ LrTasks.startAsyncTask(function()
 
   local FORMAT_ORDER = {"35mm", "Medium Format", "Large Format"}
 
-  for _, processedSet in ipairs(processedSets) do
+  for _, collSet in ipairs(allSets) do
     -- Build name path
-    local namePath = processedSet:getName()
-    local parent = processedSet:getParent()
+    local namePath = collSet:getName()
+    local parent = collSet:getParent()
     while parent and parent ~= filmScansSet do
       namePath = parent:getName() .. " > " .. namePath
       parent = parent:getParent()
@@ -146,7 +144,7 @@ LrTasks.startAsyncTask(function()
     -- Count smart collections and gather camera data
     local bwCount = 0
     local c41Count = 0
-    for _, coll in ipairs(processedSet:getChildCollections()) do
+    for _, coll in ipairs(collSet:getChildCollections()) do
       if coll:isSmartCollection() then
         local name = string.lower(coll:getName())
         local isBW = string.find(name, BLACK_AND_WHITE_STRING_MATCH)
@@ -207,13 +205,15 @@ LrTasks.startAsyncTask(function()
     end
 
     local subtotal = bwCount + c41Count
-    totalBW = totalBW + bwCount
-    totalC41 = totalC41 + c41Count
-    totalSmart = totalSmart + subtotal
+    if subtotal > 0 then
+      totalBW = totalBW + bwCount
+      totalC41 = totalC41 + c41Count
+      totalSmart = totalSmart + subtotal
 
-    table.insert(results,
-      string.format("%s:\n  B&W: %d\n  C41: %d\n  Total: %d\n", namePath, bwCount, c41Count, subtotal)
-    )
+      table.insert(results,
+        string.format("%s:\n  B&W: %d\n  C41: %d\n  Total: %d\n", namePath, bwCount, c41Count, subtotal)
+      )
+    end
   end
 
   -- Group cameras by format (35mm / Medium Format / Large Format first, then alphabetically by camera name);
