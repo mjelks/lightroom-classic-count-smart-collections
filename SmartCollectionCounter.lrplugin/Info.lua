@@ -3,9 +3,9 @@ return {
   LrToolkitIdentifier = 'com.example.smartcollectioncounter',
   LrPluginName = "Smart Collection Counter",
 
-  LrLibraryMenuItems = {
+  LrExportMenuItems = {
     {
-      title = "Count Smart Collections in Film Scans > Processed",
+      title = "Count Smart Collections in Film Scans",
       file = "CountSmartCollections.lua",
     },
   },
