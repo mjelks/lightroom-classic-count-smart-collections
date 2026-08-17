@@ -118,6 +118,8 @@ LrTasks.startAsyncTask(function()
   local totalC41 = 0
   local cameraBreakdown = {}
 
+  local FORMAT_ORDER = {"35mm", "Medium Format", "Large Format"}
+
   for _, processedSet in ipairs(processedSets) do
     -- Build name path
     local namePath = processedSet:getName()
@@ -125,6 +127,20 @@ LrTasks.startAsyncTask(function()
     while parent and parent ~= filmScansSet do
       namePath = parent:getName() .. " > " .. namePath
       parent = parent:getParent()
+    end
+
+    -- Format group is whichever path segment contains a known format (e.g. 35mm / Medium Format / Large Format).
+    -- Segments may have a sort-order prefix (e.g. "•35mm"), so match by substring, not exact equality.
+    local formatGroup = namePath
+    for segment in (namePath .. " > "):gmatch("(.-) > ") do
+      if formatGroup == namePath then
+        for _, f in ipairs(FORMAT_ORDER) do
+          if string.find(segment, f, 1, true) then
+            formatGroup = f
+            break
+          end
+        end
+      end
     end
 
     -- Count smart collections and gather camera data
@@ -175,9 +191,9 @@ LrTasks.startAsyncTask(function()
           
           -- Initialize camera entry if needed
           if not cameraBreakdown[cameraKey] then
-            cameraBreakdown[cameraKey] = {total = 0, bw = 0, c41 = 0}
+            cameraBreakdown[cameraKey] = {total = 0, bw = 0, c41 = 0, sources = {}, formatGroup = formatGroup}
           end
-          
+
           -- Update counts
           cameraBreakdown[cameraKey].total = cameraBreakdown[cameraKey].total + 1
           if isBW then
@@ -185,6 +201,7 @@ LrTasks.startAsyncTask(function()
           else
             cameraBreakdown[cameraKey].c41 = cameraBreakdown[cameraKey].c41 + 1
           end
+          table.insert(cameraBreakdown[cameraKey].sources, namePath .. " > " .. coll:getName())
         end
       end
     end
@@ -199,24 +216,56 @@ LrTasks.startAsyncTask(function()
     )
   end
 
-  -- Sort camera breakdown by count (descending)
-  local sortedCameras = {}
-  for camera, counts in pairs(cameraBreakdown) do
-    table.insert(sortedCameras, {camera = camera, total = counts.total, bw = counts.bw, c41 = counts.c41})
+  -- Group cameras by format (35mm / Medium Format / Large Format first, then alphabetically by camera name);
+  -- cameras whose folder doesn't match a known format are listed last, without a header.
+  local knownFormats = {}
+  for _, f in ipairs(FORMAT_ORDER) do
+    knownFormats[f] = {}
   end
-  table.sort(sortedCameras, function(a, b) return a.total > b.total end)
+  local otherCameras = {}
 
-  -- Build camera breakdown string
-  local cameraResults = {}
-  if #sortedCameras > 0 then
-    -- Add header
-    table.insert(cameraResults, "Camera | Total (C41|B&W)")
-    
-    -- Add camera rows
-    for _, item in ipairs(sortedCameras) do
-      table.insert(cameraResults, string.format("%s: %d (%d|%d)", 
-        item.camera, item.total, item.c41, item.bw))
+  for camera, counts in pairs(cameraBreakdown) do
+    local item = {camera = camera, total = counts.total, bw = counts.bw, c41 = counts.c41, sources = counts.sources}
+    if knownFormats[counts.formatGroup] then
+      table.insert(knownFormats[counts.formatGroup], item)
+    else
+      table.insert(otherCameras, item)
     end
+  end
+
+  local function byCameraName(a, b) return a.camera < b.camera end
+  for _, f in ipairs(FORMAT_ORDER) do
+    table.sort(knownFormats[f], byCameraName)
+  end
+  table.sort(otherCameras, byCameraName)
+
+  local function formatCameraLines(item)
+    local lines = {string.format("%s: %d (%d|%d)", item.camera, item.total, item.c41, item.bw)}
+    if item.camera == "Unknown" then
+      table.insert(lines, "  Missing NLP camera metadata in:")
+      for _, source in ipairs(item.sources) do
+        table.insert(lines, "    - " .. source)
+      end
+    end
+    return table.concat(lines, "\n")
+  end
+
+  local cameraSections = {}
+  for _, f in ipairs(FORMAT_ORDER) do
+    if #knownFormats[f] > 0 then
+      local lines = {string.format("- %s -", f)}
+      for _, item in ipairs(knownFormats[f]) do
+        table.insert(lines, formatCameraLines(item))
+      end
+      table.insert(cameraSections, table.concat(lines, "\n"))
+    end
+  end
+  if #otherCameras > 0 then
+    local lines = {}
+    for _, item in ipairs(otherCameras) do
+      table.insert(lines, formatCameraLines(item))
+    end
+    table.insert(cameraSections, table.concat(lines, "\n"))
   end
 
   -- Final output
@@ -225,9 +274,9 @@ LrTasks.startAsyncTask(function()
     "\nGrand Total:\n  B&W: %d\n  C41: %d\n  Total Smart Collections (i.e. Total Rolls Developed): %d",
     totalBW, totalC41, totalSmart
   )
-  
-  if #cameraResults > 0 then
-    message = message .. "\n\nCamera Breakdown:\n" .. table.concat(cameraResults, "\n")
+
+  if #cameraSections > 0 then
+    message = message .. "\n\nCamera Breakdown:\nCamera | Total (C41|B&W)\n" .. table.concat(cameraSections, "\n\n")
   else
     message = message .. "\n\nCamera Breakdown: No camera metadata found"
   end
