@@ -117,6 +117,15 @@ LrTasks.startAsyncTask(function()
   local cameraBreakdown = {}
 
   local FORMAT_ORDER = {"35mm", "Medium Format", "Large Format"}
+  local knownFormatSet = {}
+  for _, f in ipairs(FORMAT_ORDER) do
+    knownFormatSet[f] = true
+  end
+
+  -- Summed by top-level format group only, so "Imported" and "Processed"
+  -- subfolders (or any other subgrouping) collapse into one entry per format.
+  local formatSummary = {}
+  local otherFormatOrder = {}
 
   for _, collSet in ipairs(allSets) do
     -- Build name path
@@ -210,10 +219,30 @@ LrTasks.startAsyncTask(function()
       totalC41 = totalC41 + c41Count
       totalSmart = totalSmart + subtotal
 
+      if not formatSummary[formatGroup] then
+        formatSummary[formatGroup] = {bw = 0, c41 = 0}
+        if not knownFormatSet[formatGroup] then
+          table.insert(otherFormatOrder, formatGroup)
+        end
+      end
+      formatSummary[formatGroup].bw = formatSummary[formatGroup].bw + bwCount
+      formatSummary[formatGroup].c41 = formatSummary[formatGroup].c41 + c41Count
+    end
+  end
+
+  for _, f in ipairs(FORMAT_ORDER) do
+    local s = formatSummary[f]
+    if s then
       table.insert(results,
-        string.format("%s:\n  B&W: %d\n  C41: %d\n  Total: %d\n", namePath, bwCount, c41Count, subtotal)
+        string.format("%s:\n  B&W: %d\n  C41: %d\n  Total: %d\n", f, s.bw, s.c41, s.bw + s.c41)
       )
     end
+  end
+  for _, f in ipairs(otherFormatOrder) do
+    local s = formatSummary[f]
+    table.insert(results,
+      string.format("%s:\n  B&W: %d\n  C41: %d\n  Total: %d\n", f, s.bw, s.c41, s.bw + s.c41)
+    )
   end
 
   -- Group cameras by format (35mm / Medium Format / Large Format first, then alphabetically by camera name);
